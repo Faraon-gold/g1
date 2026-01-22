@@ -32,19 +32,23 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
     
     const formData = new FormData(e.target);
     
-    // Submit using form data format
-    const response = await fetch('/login', {
+    // Submit using JSON format for the backend app
+    const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Type': 'application/json',
         },
-        body: new URLSearchParams({
+        body: JSON.stringify({
             login: formData.get('login'),
             password: formData.get('password')
         })
     });
     
     if (response.ok) {
+        const data = await response.json();
+        // Store the token in localStorage for subsequent requests
+        localStorage.setItem('access_token', data.access_token);
+        
         // On success, redirect to the app route which will handle role-based redirection
         window.location.href = '/app';
     } else {

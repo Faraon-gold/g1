@@ -8,17 +8,21 @@ import sys
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+# Set the DATABASE_URL environment variable before importing database modules
+os.environ.setdefault("DATABASE_URL", "sqlite:///./attendance.db")
+
 # Add the backend app directory to the path so we can import from it
 sys.path.append('/workspace/backend/app')
 
-from models import User, Group, Subject, Base
-from database import DATABASE_URL
-from auth import hash_password
+# Import from the backend app modules
+from backend.app.models import User, Group, Subject, Base
+from backend.app.database import DATABASE_URL as DB_URL
+from backend.app.auth import hash_password
 
 
 def init_backend_database():
     """Initialize the database with sample data"""
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(DB_URL)
     Base.metadata.create_all(bind=engine)
     
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

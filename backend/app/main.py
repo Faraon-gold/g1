@@ -634,4 +634,39 @@ def get_page(page: str, request: Request):
 @app.get("/admin/users", response_class=HTMLResponse)
 def admin_users_page(request: Request):
     return templates.TemplateResponse("admin_users.html", {"request": request})
-    return templates.TemplateResponse("admin_users.html", {"request": request})
+
+
+@app.get("/app")
+def app_redirect(request: Request, db: Session = Depends(database.get_db)):
+    """
+    Redirect user to their role-based dashboard after login
+    """
+    # Extract token from authorization header
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        # If no token in header, try to get from localStorage via frontend
+        # For this case, we'll redirect to login
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/login")
+    
+    token = auth_header.split(" ")[1]
+    try:
+        payload = auth.decode_access_token(token)
+        login = payload.get("sub")
+        if not login:
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url="/login")
+        
+        # Get user from database
+        user = db.query(models.User).filter(models.User.login == login).first()
+        if not user:
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url="/login")
+        
+        # Redirect to role-specific dashboard
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"/dashboard/{user.role}")
+        
+    except Exception:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/login")
