@@ -431,13 +431,9 @@ async def login_page(request: Request):
 
 # Маршрут аутентификации
 @app.post("/login")
-async def login(request: Request, response: Response, db: Session = Depends(get_db)):
-    form_data = await request.json()
-    login = form_data.get("login")
-    password = form_data.get("password")
-
-    user = db.query(User).filter(User.login == login).first()
-    if not user or not verify_password(password, user.password_hash):
+async def login(login_request: LoginRequest, response: Response, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.login == login_request.login).first()
+    if not user or not verify_password(login_request.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
     
     token = create_access_token(data={"user_id": user.id})
