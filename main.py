@@ -440,6 +440,15 @@ async def login(login_request: LoginRequest, response: Response, db: Session = D
     response.set_cookie(key="access_token", value=token, httponly=True)
     return {"success": True, "redirect_url": f"/dashboard/{user.role.value}"}
 
+# Маршрут для проверки авторизации и перенаправления на панель управления
+@app.get("/app", response_class=HTMLResponse)
+async def app_redirect(request: Request, current_user: User = Depends(get_current_user)):
+    if not current_user:
+        return RedirectResponse(url="/")
+    
+    # Перенаправление на соответствующую панель управления в зависимости от роли
+    return RedirectResponse(url=f"/dashboard/{current_user.role.value}")
+
 # Маршрут выхода
 @app.post("/logout")
 async def logout(response: Response):
