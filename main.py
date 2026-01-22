@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import Response
@@ -434,7 +434,10 @@ async def login_page(request: Request):
 async def login(login_request: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.login == login_request.login).first()
     if not user or not verify_password(login_request.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Неверный логин или пароль"}
+        )
     
     token = create_access_token(data={"user_id": user.id})
     response.set_cookie(key="access_token", value=token, httponly=True)
