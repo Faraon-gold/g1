@@ -31,32 +31,41 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
     e.preventDefault();
     
     const formData = new FormData(e.target);
-    const loginData = {
-        login: formData.get('login'),
-        password: formData.get('password')
-    };
     
-    try {
-        const response = await fetch('/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(loginData)
-        });
-        
-        if (!response.ok) {
-            throw new Error('Неверный логин или пароль');
-        }
-        
+    // Submit using JSON format to the backend app's api/login endpoint
+    const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            login: formData.get('login'),
+            password: formData.get('password')
+        })
+    });
+    
+    if (response.ok) {
         const data = await response.json();
-        if (data.redirect_url) {
-            window.location.href = data.redirect_url;
-        } else {
-            throw new Error('Ошибка авторизации');
+        // Store the token in localStorage
+        localStorage.setItem('access_token', data.access_token);
+        
+        // Set the token in a cookie that can be read by the backend
+        document.cookie = `access_token=${data.access_token}; path=/; SameSite=Strict`;
+        
+        // Redirect to the app page which will check the token and redirect appropriately
+        window.location.href = '/app';
+    } else {
+        // Show error message - handle both 401 and 422 errors
+        let errorMessage = 'Неверный логин или пароль';
+        try {
+            const errorData = await response.json();
+            if (errorData.detail) {
+                errorMessage = errorData.detail;
+            }
+        } catch (e) {
+            // If parsing JSON fails, keep the default error message
         }
-    } catch (error) {
-        alert(error.message);
+        alert(errorMessage);
     }
 });
 </script>

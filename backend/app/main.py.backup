@@ -154,17 +154,48 @@ def register(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
     return db_user
 
 
-from fastapi import Form
-from pydantic import BaseModel
-
-class LoginRequest(BaseModel):
-    login: str
-    password: str
-
 @app.post("/login", response_model=schemas.Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
-    user = db.query(models.User).filter(models.User.login == form_data.username).first()
-    if not user or not auth.verify_password(form_data.password, user.password_hash):
+def login(
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(database.get_db)
+):
+    # Handle both form data and JSON data
+    username = None
+    password = None
+    
+    # Check if this is JSON request
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        # Handle JSON data
+        import json
+        from fastapi import Body
+        
+        # We need to get the raw JSON data differently
+        # For now, we'll handle this by having a dual approach
+        # Let's try to access the JSON body directly
+        try:
+            import asyncio
+            from starlette.requests import Request as StarletteRequest
+            from fastapi.exceptions import RequestValidationError
+            
+            # If JSON data was sent, extract username and password from it
+            # But since we can't easily read the body twice, we'll need to handle this differently
+            # So we'll create a separate endpoint or handle this differently
+            pass
+        except:
+            pass
+        
+        # For now, let's just make the endpoint compatible with both approaches
+        # by using a custom dependency
+        raise HTTPException(status_code=422, detail="JSON format not supported with this endpoint. Use form data.")
+    else:
+        # Handle form data (traditional OAuth2 approach)
+        username = form_data.username
+        password = form_data.password
+    
+    user = db.query(models.User).filter(models.User.login == username).first()
+    if not user or not auth.verify_password(password, user.password_hash):
         raise HTTPException(status_code=400, detail="Invalid credentials")
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
@@ -172,13 +203,20 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-# Create a new endpoint that accepts JSON data
+
+# Add a new login endpoint that accepts JSON data
+from pydantic import BaseModel
+
+class LoginRequest(BaseModel):
+    login: str
+    password: str
+
 @app.post("/api/login", response_model=schemas.Token)
 def api_login(
     login_request: LoginRequest,
     db: Session = Depends(database.get_db)
 ):
-    """Login endpoint that accepts JSON data"""
+    """Alternative login endpoint that accepts JSON data"""
     user = db.query(models.User).filter(models.User.login == login_request.login).first()
     if not user or not auth.verify_password(login_request.password, user.password_hash):
         raise HTTPException(status_code=400, detail="Invalid credentials")
@@ -593,10 +631,10 @@ def sync_schedule(current_user: models.User = Depends(get_current_user_role), db
         raise HTTPException(status_code=500, detail=f"Error syncing schedule: {str(e)}")
 
 
-# @app.get("/app", response_class=HTMLResponse)
-# def app_home(request: Request):
-#     """Main application page after login"""
-#     return templates.TemplateResponse("app_home.html", {"request": request})
+@app.get("/app", response_class=HTMLResponse)
+def app_home(request: Request):
+    """Main application page after login"""
+    return templates.TemplateResponse("app_home.html", {"request": request})
 
 
 @app.get("/profile", response_class=HTMLResponse)
@@ -634,39 +672,3 @@ def get_page(page: str, request: Request):
 @app.get("/admin/users", response_class=HTMLResponse)
 def admin_users_page(request: Request):
     return templates.TemplateResponse("admin_users.html", {"request": request})
-
-
-@app.get("/app")
-def app_redirect(request: Request, db: Session = Depends(database.get_db)):
-    """
-    Redirect user to their role-based dashboard after login
-    """
-    # Extract token from authorization header
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        # If no token in header, try to get from localStorage via frontend
-        # For this case, we'll redirect to login
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/login")
-    
-    token = auth_header.split(" ")[1]
-    try:
-        payload = auth.decode_access_token(token)
-        login = payload.get("sub")
-        if not login:
-            from fastapi.responses import RedirectResponse
-            return RedirectResponse(url="/login")
-        
-        # Get user from database
-        user = db.query(models.User).filter(models.User.login == login).first()
-        if not user:
-            from fastapi.responses import RedirectResponse
-            return RedirectResponse(url="/login")
-        
-        # Redirect to role-specific dashboard
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url=f"/dashboard/{user.role}")
-        
-    except Exception:
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/login")

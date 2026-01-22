@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import Response
@@ -431,18 +431,26 @@ async def login_page(request: Request):
 
 # Маршрут аутентификации
 @app.post("/login")
-async def login(request: Request, response: Response, db: Session = Depends(get_db)):
-    form_data = await request.json()
-    username = form_data.get("login")
-    password = form_data.get("password")
-
-    user = db.query(User).filter(User.username == username).first()
-    if not user or not verify_password(password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+async def login(login_request: LoginRequest, response: Response, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.login == login_request.login).first()
+    if not user or not verify_password(login_request.password, user.password_hash):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Неверный логин или пароль"}
+        )
     
     token = create_access_token(data={"user_id": user.id})
     response.set_cookie(key="access_token", value=token, httponly=True)
     return {"success": True, "redirect_url": f"/dashboard/{user.role.value}"}
+
+# Маршрут для проверки авторизации и перенаправления на панель управления
+@app.get("/app", response_class=HTMLResponse)
+async def app_redirect(request: Request, current_user: User = Depends(get_current_user)):
+    if not current_user:
+        return RedirectResponse(url="/")
+    
+    # Перенаправление на соответствующую панель управления в зависимости от роли
+    return RedirectResponse(url=f"/dashboard/{current_user.role.value}")
 
 # Маршрут выхода
 @app.post("/logout")
