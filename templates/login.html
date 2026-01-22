@@ -37,7 +37,7 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
     };
     
     try {
-        const response = await fetch('/login', {
+        const response = await fetch('/api/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -46,14 +46,40 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         });
         
         if (!response.ok) {
-            throw new Error('Неверный логин или пароль');
-        }
-        
-        const data = await response.json();
-        if (data.redirect_url) {
-            window.location.href = data.redirect_url;
+            // Try the regular login endpoint as fallback
+            const fallbackResponse = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    username: formData.get('login'),
+                    password: formData.get('password')
+                })
+            });
+            
+            if (!fallbackResponse.ok) {
+                throw new Error('Неверный логин или пароль');
+            }
+            
+            const fallbackData = await fallbackResponse.json();
+            if (fallbackData.access_token) {
+                localStorage.setItem('access_token', fallbackData.access_token);
+                // Redirect to dashboard based on role
+                window.location.href = '/app';
+            } else {
+                throw new Error('Ошибка авторизации');
+            }
         } else {
-            throw new Error('Ошибка авторизации');
+            const data = await response.json();
+            // Store the token in localStorage or sessionStorage
+            if (data.access_token) {
+                localStorage.setItem('access_token', data.access_token);
+                // Redirect to dashboard based on role
+                window.location.href = '/app';
+            } else {
+                throw new Error('Ошибка авторизации');
+            }
         }
     } catch (error) {
         alert(error.message);

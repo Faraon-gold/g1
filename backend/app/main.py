@@ -154,10 +154,33 @@ def register(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
     return db_user
 
 
+from fastapi import Form
+from pydantic import BaseModel
+
+class LoginRequest(BaseModel):
+    login: str
+    password: str
+
 @app.post("/login", response_model=schemas.Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
     user = db.query(models.User).filter(models.User.login == form_data.username).first()
     if not user or not auth.verify_password(form_data.password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Invalid credentials")
+    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth.create_access_token(
+        data={"sub": user.login, "role": user.role}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# Create a new endpoint that accepts JSON data
+@app.post("/api/login", response_model=schemas.Token)
+def api_login(
+    login_request: LoginRequest,
+    db: Session = Depends(database.get_db)
+):
+    """Login endpoint that accepts JSON data"""
+    user = db.query(models.User).filter(models.User.login == login_request.login).first()
+    if not user or not auth.verify_password(login_request.password, user.password_hash):
         raise HTTPException(status_code=400, detail="Invalid credentials")
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
