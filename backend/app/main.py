@@ -593,10 +593,10 @@ def sync_schedule(current_user: models.User = Depends(get_current_user_role), db
         raise HTTPException(status_code=500, detail=f"Error syncing schedule: {str(e)}")
 
 
-@app.get("/app", response_class=HTMLResponse)
-def app_home(request: Request):
-    """Main application page after login"""
-    return templates.TemplateResponse("app_home.html", {"request": request})
+# @app.get("/app", response_class=HTMLResponse)
+# def app_home(request: Request):
+#     """Main application page after login"""
+#     return templates.TemplateResponse("app_home.html", {"request": request})
 
 
 @app.get("/profile", response_class=HTMLResponse)

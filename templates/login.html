@@ -32,8 +32,8 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
     
     const formData = new FormData(e.target);
     
-    // Submit using JSON format for the backend app
-    const response = await fetch('/login', {
+    // Submit using JSON format to the backend app's api/login endpoint
+    const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -46,8 +46,14 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
     
     if (response.ok) {
         const data = await response.json();
-        // On success, redirect to the redirect URL provided by the backend
-        window.location.href = data.redirect_url;
+        // Store the token in localStorage
+        localStorage.setItem('access_token', data.access_token);
+        
+        // Set the token in a cookie that can be read by the backend
+        document.cookie = `access_token=${data.access_token}; path=/; SameSite=Strict`;
+        
+        // Redirect to the app page which will check the token and redirect appropriately
+        window.location.href = '/app';
     } else {
         // Show error message - handle both 401 and 422 errors
         let errorMessage = 'Неверный логин или пароль';
